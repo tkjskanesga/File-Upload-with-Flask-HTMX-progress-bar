@@ -1,73 +1,282 @@
-{# templates/index.html #}
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title> {{ title }} </title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-
-        <script src="/static/js/htmx.min.js"></script>
-        <script src="/static/js/dnd.js"></script>
-
-        <link type="text/css" href={{ url_for('static', filename='css/style.css') }} rel="stylesheet">
-    </head>
-    <body>
-        <div class="upload_form">
-            <h1>Internal Temp Files Storage</h1>
-
-            <form id="my-form" 
-            hx-encoding="multipart/form-data" 
-            hx-post="/uploads"
-            hx-target="#list_results"      
-            hx-on::after-request="if(event.detail.successful) this.reset()" 
-        >
-            <div id="dropbox" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
-            <input type=file name=file id="file" multiple />
-            <button>
-                Upload
-            </button>
-            </div>
-            <progress id="my-progress" value="0" max="100"></progress>
-            </form>
-            <script>
-                htmx.on('#my-form', 'htmx:xhr:progress', function(evt) {
-                  htmx.find('#my-progress').setAttribute('value', evt.detail.loaded/evt.detail.total * 100)
-                });
-            </script>
-        </div>
-
-
-        <div class="my-desc">
-            <p>Supported File Format and Max file size <= 300MB</p>
-            <p>{'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'log', 'tgz', 'zip', 'out', 'py', 'sh', 'mp4', 'mp3', 'iso', 'pcap', 'pcapng', 'ttl', 'xml', 'json', 'tar', 'html', 'xlsx', 'conf', 'har'}</p>
-
-            <p>File will be remove automatically relative to its uploaded date every 4<sup>th</sup> day</p>
-
-        </div> 
-
-        <div class="unsupport_msg">
-            {% block file_content %}
-            {% endblock %}  
-
-            {% block content %}
-            {% endblock %}
-        </div>
-
-        <div class="file_list" >
-            {% block file_list_content %}
-            {%for get_file_filename in get_file_filename%}   
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
     
-            <li><a href={{ url_for('download_file', filename=get_file_filename) }}>{{ get_file_filename }}</a></li>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     
-            {%endfor%}
-
-            <div id="list_results">
-                
-            </div>
-
-            {% endblock %}
-        </div>    
-
+    <!-- HTMX -->
+    <script src="/static/js/htmx.min.js"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        h1, h2, h3 {
+            font-family: 'Google Sans', 'Roboto', sans-serif;
+        }
         
-    </body>
+        .drop-zone {
+            transition: all 0.3s ease;
+        }
+        
+        .drop-zone.dragover {
+            border-color: #1a73e8;
+            background-color: #e8f0fe;
+            transform: scale(1.02);
+        }
+        
+        .file-item {
+            transition: all 0.2s ease;
+        }
+        
+        .file-item:hover {
+            transform: translateX(4px);
+            background-color: #f8f9fa;
+        }
+        
+        progress {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+        }
+        
+        progress::-webkit-progress-bar {
+            background-color: #e8eaed;
+            border-radius: 2px;
+        }
+        
+        progress::-webkit-progress-value {
+            background-color: #1a73e8;
+            border-radius: 2px;
+        }
+        
+        progress::-moz-progress-bar {
+            background-color: #1a73e8;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-white min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    <h1 class="text-xl font-medium text-gray-900">File Storage</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 mb-8">
+            <h2 class="text-2xl font-medium text-gray-900 mb-2">Upload files</h2>
+            <p class="text-sm text-gray-600 mb-6">Drag and drop files here or click to browse</p>
+            
+            <form id="my-form" 
+                hx-encoding="multipart/form-data" 
+                hx-post="/uploads"
+                hx-target="#list_results"      
+                hx-on::after-request="if(event.detail.successful) this.reset(); resetUploadForm();">
+                
+                <div id="dropbox" 
+                    class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                    ondrop="dropHandler(event);" 
+                    ondragover="dragOverHandler(event);"
+                    ondragleave="dragLeaveHandler(event);">
+                    
+                    <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                    </svg>
+                    
+                    <label for="file" class="cursor-pointer">
+                        <span class="text-blue-600 hover:text-blue-700 font-medium">Click to upload</span>
+                        <span class="text-gray-600"> or drag and drop</span>
+                    </label>
+                    
+                    <input type="file" name="file" id="file" multiple required class="hidden" 
+                        onchange="updateFileList(this)" />
+                    
+                    <p class="text-xs text-gray-500 mt-2">Maximum file size: 300MB</p>
+                    
+                    <div id="selected-files" class="mt-4 text-left hidden">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Selected files:</p>
+                        <ul id="file-list" class="text-sm text-gray-600 space-y-1"></ul>
+                    </div>
+                </div>
+                
+                <div class="mt-4 hidden" id="progress-container">
+                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                        <span>Uploading...</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <progress id="my-progress" value="0" max="100" class="w-full"></progress>
+                </div>
+                
+                <button type="submit" 
+                    class="mt-6 w-full sm:w-auto px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    id="upload-btn">
+                    <span class="flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                        Upload files
+                    </span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Info Card -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+            <div class="flex">
+                <svg class="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="text-sm font-medium text-blue-900 mb-2">File Storage Information</h3>
+                    <div class="text-sm text-blue-800 space-y-1">
+                        <p><strong>Supported formats:</strong> txt, pdf, png, jpg, jpeg, gif, log, tgz, zip, out, py, sh, mp4, mp3, iso, pcap, pcapng, ttl, xml, json, tar, html, xlsx, conf, har</p>
+                        <p><strong>Auto-deletion:</strong> Files are automatically removed after 4 days from upload date</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="list_results"></div>
+
+        <!-- Uploaded Files List -->
+        {% if get_file_filename and get_file_filename|length > 0 %}
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                </svg>
+                Available Files ({{ get_file_filename|length }})
+            </h3>
+            
+            <div class="space-y-2">
+                {% for filename in get_file_filename %}
+                <a href="{{ url_for('download_file', filename=filename) }}" 
+                   class="file-item flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 border border-gray-200 group">
+                    <div class="flex items-center min-w-0 flex-1">
+                        <svg class="w-5 h-5 text-gray-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                        <span class="text-sm text-gray-900 truncate font-medium">{{ filename }}</span>
+                    </div>
+                    <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-600 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% block file_content %}{% endblock %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <p class="text-center text-sm text-gray-500">
+                Internal Temporary File Storage &middot; Files are stored temporarily and deleted after 4 days
+            </p>
+        </div>
+    </footer>
+
+    <script src="/static/js/dnd.js"></script>
+    <script>
+        // HTMX Progress Bar
+        htmx.on('#my-form', 'htmx:xhr:progress', function(evt) {
+            const progress = (evt.detail.loaded / evt.detail.total * 100);
+            htmx.find('#my-progress').setAttribute('value', progress);
+            document.getElementById('progress-text').textContent = Math.round(progress) + '%';
+            document.getElementById('progress-container').classList.remove('hidden');
+        });
+
+        // Reset progress on completion
+        htmx.on('#my-form', 'htmx:afterRequest', function(evt) {
+            setTimeout(() => {
+                resetUploadForm();
+            }, 1000);
+        });
+
+        // Reset upload form
+        function resetUploadForm() {
+            document.getElementById('progress-container').classList.add('hidden');
+            document.getElementById('my-progress').value = 0;
+            document.getElementById('selected-files').classList.add('hidden');
+            document.getElementById('file-list').innerHTML = '';
+        }
+
+        // File selection display
+        function updateFileList(input) {
+            const fileList = document.getElementById('file-list');
+            const selectedFiles = document.getElementById('selected-files');
+            
+            if (input.files.length > 0) {
+                fileList.innerHTML = '';
+                Array.from(input.files).forEach(file => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center text-gray-700';
+                    li.innerHTML = `
+                        <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        ${file.name} (${formatFileSize(file.size)})
+                    `;
+                    fileList.appendChild(li);
+                });
+                selectedFiles.classList.remove('hidden');
+            } else {
+                selectedFiles.classList.add('hidden');
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Drag and drop handlers
+        function dragOverHandler(ev) {
+            ev.preventDefault();
+            document.getElementById('dropbox').classList.add('dragover');
+        }
+
+        function dragLeaveHandler(ev) {
+            document.getElementById('dropbox').classList.remove('dragover');
+        }
+
+        function dropHandler(ev) {
+            ev.preventDefault();
+            document.getElementById('dropbox').classList.remove('dragover');
+            
+            const fileInput = document.getElementById('file');
+            fileInput.files = ev.dataTransfer.files;
+            updateFileList(fileInput);
+        }
+    </script>
+</body>
 </html>

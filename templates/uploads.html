@@ -1,8 +1,32 @@
-    {%for upload_files in upload_files%}   
-    
-        <li><a href={{ url_for('download_file', filename=upload_files.filename) }}>{{ upload_files.filename }}</a></li>
-        
-    
-    {%endfor%}
-
-
+<div class="bg-white rounded-lg shadow-sm border border-green-200 p-6 mb-6">
+    <div class="flex items-start">
+        <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-green-900">Upload Successful</h3>
+            <div class="mt-2 text-sm text-green-800">
+                <p class="mb-3">Your files have been uploaded successfully.</p>
+                
+                <div class="space-y-2">
+                    {% for upload_file in upload_files %}
+                    <a href="{{ url_for('download_file', filename=upload_file.filename) }}" 
+                       class="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 border border-green-200 group transition-colors">
+                        <div class="flex items-center min-w-0 flex-1">
+                            <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span class="text-sm text-green-900 truncate font-medium">{{ upload_file.filename }}</span>
+                        </div>
+                        <svg class="w-5 h-5 text-green-600 group-hover:text-green-700 ml-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

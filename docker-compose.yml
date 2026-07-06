@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  flask-app:
+    build: .
+    image: flask-file-upload
+    container_name: flask-upload-app
+    ports:
+      - "5000:5000"
+    environment:
+      - UPLOAD_FOLDER=/root/storage
+      - SECRET_KEY=change-this-in-production
+      - DATABASE_URI=sqlite:///data.sqlite
+      - FLASK_ENV=production
+      - PORT=5000
+    volumes:
+      - ./storage:/root/storage
+      - ./data.sqlite:/app/data.sqlite
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/uploads')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

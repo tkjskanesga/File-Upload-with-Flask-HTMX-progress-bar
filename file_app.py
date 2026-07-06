@@ -3,20 +3,29 @@ import os
 from flask import Flask, flash, request, redirect, url_for, send_from_directory, render_template, current_app
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
 
-from flask_sqlalchemy import SQLAlchemy 
+# Load environment variables from .env file
+load_dotenv()
 
-# set upload target folder path
-UPLOAD_FOLDER = '/home/scheehan/my-projects/Flask/file_app/apps/static/uploads/'
-# set allowed file format type
+# Get base directory of the application
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+# Get configuration from environment variables with defaults
+UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', '/root/storage')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+DATABASE_URI = os.environ.get('DATABASE_URI', f'sqlite:///{os.path.join(basedir, "data.sqlite")}')
+PORT = int(os.environ.get('PORT', 5000))
+
+# Set allowed file format type
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'log', 'tgz', 'zip', 'out', 'py', 'sh', 'mp4', 'mp3', 'iso', 'pcap', 'pcapng', 'ttl', 'xml', 'json', 'tar', 'html', 'xlsx', 'conf', 'har'}
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['SECRET_KEY'] = SECRET_KEY
 app.config['TEMPLATES_AUTO_RELOAD'] = True
-
-app.config['SQLALCHEMY_DATABASE_URI'] =\
-    'sqlite:///' + os.path.join(basedir, 'data.sqlite')
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -93,9 +102,8 @@ def internal_server_error(error):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0')
-
-
-
-    # port = int(os.environ.get('PORT', 5000))
-    # app.run(debug=False, host='0.0.0.0', port=port)
+    # Create upload folder if it doesn't exist
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    
+    # Run the Flask application
+    app.run(host='0.0.0.0', port=PORT, debug=False)
